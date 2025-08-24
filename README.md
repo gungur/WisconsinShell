@@ -1,47 +1,137 @@
+# Wisconsin Shell (wsh)
 
-The `run-tests.sh` script is called by various testers to do the work of
-testing. Each test is actually fairly simple: it is a comparison of standard
-output and standard error, as per the program specification.
+## Overview
 
-In any given program specification directory, there exists a specific `tests/`
-directory which holds the expected return code, standard output, and standard
-error in files called `n.rc`, `n.out`, and `n.err` (respectively) for each
-test `n`. The testing framework just starts at `1` and keeps incrementing
-tests until it can't find any more or encounters a failure. Thus, adding new
-tests is easy; just add the relevant files to the tests directory at the
-lowest available number.
+This project implements a simple Unix shell called **wsh** (Wisconsin Shell). The shell supports interactive and batch modes, built-in commands, variable substitution, I/O redirection, command history, and execution of external programs.
 
-The files needed to describe a test number `n` are:
-- `n.rc`: The return code the program should return (usually 0 or 1)
-- `n.out`: The standard output expected from the test
-- `n.err`: The standard error expected from the test
-- `n.run`: How to run the test (which arguments it needs, etc.)
-- `n.desc`: A short text description of the test
-- `n.pre` (optional): Code to run before the test, to set something up
-- `n.post` (optional): Code to run after the test, to clean something up
+## Features
 
-There is also a single file called `pre` which gets run once at the 
-beginning of testing; this is often used to do a more complex build
-of a code base, for example. To prevent repeated time-wasting pre-test
-activity, suppress this with the `-s` flag (as described below).
+- **Interactive Mode**: Prompts user for commands with `wsh> `
+- **Batch Mode**: Executes commands from a script file
+- **Built-in Commands**: 
+  - `cd`: Change directory
+  - `exit`: Exit the shell
+  - `export`: Set environment variables
+  - `local`: Set shell variables
+  - `vars`: Display shell variables
+  - `history`: Manage command history
+  - `ls`: List directory contents (built-in implementation)
+- **Variable Substitution**: Supports `$VAR` substitution for both environment and shell variables
+- **I/O Redirection**: Supports `<`, `>`, `>>`, `&>`, `&>>`
+- **Command History**: Tracks last commands with configurable capacity
+- **Path Resolution**: Searches for executables in `$PATH`
+- **Comment Support**: Ignores lines starting with `#`
+- **Error Handling**: Robust error handling with appropriate error messages
 
-In most cases, a wrapper script is used to call `run-tests.sh` to do the
-necessary work.
+## Project Structure
 
-The options for `run-tests.sh` include:
-* `-h` (the help message)
-* `-v` (verbose: print what each test is doing)
-* `-t n` (run only test `n`)
-* `-c` (continue even after a test fails)
-* `-d` (run tests not from `tests/` directory but from this directory instead)
-* `-s` (suppress running the one-time set of commands in `pre` file)
+```
+project3/
+├── wsh.c              # Main shell implementation
+├── wsh.h              # Header file with declarations and constants
+├── Makefile           # Build configuration (to be created)
+├── tests/             # Test directory
+│   ├── run-tests.sh   # Test runner script
+│   └── ...            # Test cases
+└── README.md          # This file
+```
 
-There is also another script used in testing of `xv6` projects, called
-`run-xv6-command.exp`. This is an
-[`expect`](https://en.wikipedia.org/wiki/Expect) script which launches the
-qemu emulator and runs the relevant testing command in the xv6 environment
-before automatically terminating the test. It is used by the `run-tests.sh`
-script as described above and thus not generally called by users directly.
+## Building the Project
 
+1. Create a `Makefile` with the required targets:
+   - `all`: Builds both optimized and debug binaries
+   - `wsh`: Builds optimized binary
+   - `wsh-dbg`: Builds debug binary
+   - `clean`: Removes binaries
+   - `submit`: Submits the project
 
+2. Build the shell:
+   ```bash
+   make all
+   ```
 
+## Usage
+
+### Interactive Mode
+```bash
+./wsh
+wsh> command [args]
+```
+
+### Batch Mode
+```bash
+./wsh script.wsh
+```
+
+### Example Script
+Create an executable script:
+```bash
+#!./wsh
+
+# This is a comment
+echo hello
+local VAR=world
+echo $VAR
+```
+
+Make it executable and run:
+```bash
+chmod +x script.wsh
+./script.wsh
+```
+
+## Testing
+
+The project includes a test framework. To run tests:
+
+```bash
+cd tests
+./run-tests.sh
+```
+
+Test options:
+- `-h`: Show help
+- `-v`: Verbose output
+- `-t n`: Run only test n
+- `-c`: Continue after failures
+- `-d dir`: Use alternative test directory
+- `-s`: Skip pre-test initialization
+
+## Implementation Details
+
+### Key Components
+
+1. **Command Parsing**: Uses `strtok()` to tokenize input with variable substitution
+2. **Process Execution**: Uses `fork()` and `execv()` to run external commands
+3. **Built-in Commands**: Implemented as function pointers in a dispatch table
+4. **Variable Management**: 
+   - Shell variables stored in a linked list
+   - Environment variables managed with `setenv()/getenv()`
+5. **History Management**: Circular buffer implementation for command history
+6. **Redirection Handling**: File descriptor manipulation with `dup2()`
+
+### Memory Management
+
+The shell carefully manages memory to avoid leaks:
+- All allocated memory is freed during cleanup
+- Uses `valgrind` and address sanitizer for leak detection
+
+### Error Handling
+
+- Comprehensive error checking for system calls
+- Appropriate error messages printed to stderr
+- Shell continues running after most errors
+
+## Development Notes
+
+- Start with basic command execution before adding advanced features
+- Test each feature thoroughly before moving to the next
+- Use the provided test framework and create additional tests
+- Check return codes of all system calls
+- Use version control (git) to track changes
+
+## Resources
+
+- GNU Make Manual: https://www.gnu.org/software/make/manual/
+- Linux man pages: `fork`, `exec`, `wait`, `dup2`, etc.
+- Bash documentation for redirection and variable behavior
